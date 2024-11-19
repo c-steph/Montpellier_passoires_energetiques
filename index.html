@@ -1,0 +1,313 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"> </script> 
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css">
+        <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@8"></script>
+		<script type='text/javascript' src='passoires_iris_2.json'> </script>
+		<script type='text/javascript' src='quartiers_montpellier.json'> </script>
+	</head>
+<style>
+ p {font-size: 0.85em; padding: 1%;}
+#mapid {height: 82% ; width: 100%;margin: auto; }
+#header {
+                height: 18%;
+                
+                max-height: 18%; 
+                
+                background-color: #f44d38; 
+                 display: flex;
+            }
+            
+            #title {width: 90%;
+            margin: auto auto;}
+            #maintitle {
+                font-size: 1.45em ; 
+                color: white ; 
+                margin-top: auto;
+		      margin-bottom: auto;
+              
+                font-family: "Century Gothic", CenturyGothic, "AppleGothic", sans-serif; 
+                text-align: left;
+         
+                white-space: nowrap;
+                cursor : default ; 
+                margin-left: 1% ; 
+            }
+           
+            #header:hover {background-color: #fc8f6f; }
+
+.info { padding: 6px 8px; font: 16px/20px Arial, Helvetica, sans-serif; background: white; background: rgba(193, 185, 180,); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; } .legend { text-align: left; line-height: 20px; color: #555; } .legend i { width: 20px; height: 20px; float: left; margin-right: 8px; opacity: 0.8; }
+.custom-popup {
+    background-color: #ff0000; /* Couleur de fond de la pop-up (rouge dans cet exemple) */
+    color: #ffffff; /* Couleur du texte de la pop-up (blanc dans cet exemple) */
+    font-size: 14px; /* Taille de la police de la pop-up (14px dans cet exemple) */
+    padding: 10px; /* Marge intérieure de la pop-up */
+}
+</style>
+<body>
+
+<div id="header">
+          <table width="100%">
+            <tr>
+              <td width="85%"><div id="title">
+                <p id="maintitle"><strong>Proportion des passoires énergétiques par IRIS dans la commune de Montpellier</strong><br>Une répartition au sein des zones historiques et péripheriques</p>
+            </div></td>
+              <td width="15%"><div id="boutoninfo">
+			  <img style="float: right;" id="boutoninformations" src="file:bouton-dinformations.png" >
+           </tr>
+          </table>
+		   </div>
+
+<div id="mapid"></div>
+
+<script>
+
+var mymap = L.map('mapid', {center: [43.61, 3.87], zoom: 12.495});
+//  <!-- a ce moment la on importe le fond de carte--!>
+
+L.control.scale().addTo(mymap); 
+var baselayers = {
+		Open_Street_Map: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{subdomains: 'abcd',minZoom: 12,	maxZoom: 20,	ext: 'png'}).addTo(mymap),
+		Esri_World_Imagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
+	};
+
+
+
+// Statistiques locales
+var info = L.control();
+
+            info.onAdd = function (mymap) {
+                this._div = L.DomUtil.create('div', 'info');
+                this.update();
+                return this._div;
+            }; 
+
+            info.update = function (props) {
+                this._div.innerHTML = '<h4>Statistiques locales</h4>' +  (props ?
+                    '<b>Nom de l'+ "'" +'IRIS : ' + props.nomIRIS + '</b><br><br>' + 'Taux de passoires énergétiques : ' + props.Taux.toFixed(2) + ' % '
+                                  + '</b><br>' + 'Nombre de passoires énergétiques : ' + props.Nombre.toFixed(0)
+                                  + '</b><br />'  + 'Surface de l' + "'" + 'iris  : ' + props.area + ' en m<sup>2</sup>'
+                    : 'Survoler une unité spatiale');
+            };
+
+            info.addTo(mymap);
+
+// Couleurs de la légende
+function getColor(d) {
+  return d < 14 ? '#fff5f0' :
+  d < 25 ? '#fdccb8' :
+  d < 36 ? '#fc8f6f' :
+  d < 47 ? '#f44d38' :
+  d < 58 ? '#c50e1c' :
+    '#67000d';
+}
+
+function style(feature) {
+  return {
+    weight: 1.5,
+    opacity: 1,
+    color: 'black',
+    dashArray: '1',
+    fillOpacity: 1,
+    fillColor:getColor(feature.properties.Taux)
+    };
+  }
+
+
+
+  function highlightFeature(e) {
+                var layer = e.target;
+
+                layer.setStyle({
+                    weight: 3,
+                    color: '#111',
+                    dashArray: '',
+                    fillOpacity: 0.7
+                });
+
+                 if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                    layer.bringToFront();
+                     geojson.bringToFront();
+                } 
+
+
+                info.update(layer.feature.properties);
+            };
+            
+            
+            function resetHighlight(e) {
+                geojson.resetStyle(e.target);
+                info.update();
+            };
+            
+            // Fonction de zoom sur une unité spatiale 
+            function zoomToFeature(e) {
+                mymap.fitBounds(e.target.getBounds());
+            };
+            
+            // Configuration du déclenchement des fonctions précédentes selon les évèvements survol et clic 
+            function onEachFeature(feature, layer) {
+                layer.on({
+                    mouseover: highlightFeature,
+                    mouseout: resetHighlight,
+                    click: zoomToFeature
+                });
+            };
+			
+var geojson = L.geoJson(passoir_iris2, {style: style, onEachFeature: onEachFeature, click: zoomToFeature}).addTo(mymap);
+
+            
+  // Ajout de la légende 
+            var legend = L.control({position: 'bottomright'});
+
+            // Configuration de la légende 
+            legend.onAdd = function (mapid) {
+
+                var div = L.DomUtil.create('div', 'info legend'),
+                    grades = [null, 14, 25, 36, 47, 58],
+                    labels = ["<strong> Taux de passoires énergétiques en %<br></strong>(passoires énergétiques/IRIS)"],	
+                    from, to;
+
+                for (var i = 0; i < grades.length; i++) {
+                    from = grades[i];
+                    to = grades[i + 1];
+
+                    labels.push(
+                        '<i style="background:' + getColor(from + 1) + '"></i> ' +
+                        (from ? '' + from : 'inférieure ') + (to ? ' à ' + to : ' et plus'));
+                }
+
+                div.innerHTML = labels.join('<br/><br/>');
+                return div;
+            };
+legend.addTo(mymap);
+L.control.scale().addTo(mymap);
+
+// Bouton info
+$('#boutoninfo img').on("click", function(){
+                Swal.fire({
+                    title:'Visualiser la répartition des passoires énergétiques au sein de la commune de Montpellier ',
+                    html:'Cette carte interactive permet de visualiser la répartition des passoires énergétiques dans la commune de Montpellier, ceci avec différents niveaux de lecture.<br><br>On constate une nette sur-représentation des passoires énergétiques au centre de Montpellier, celui-ci correspondant au centre historique. Une répartition qui se confond avec celle des monuments historiques, représentés par des pop-ups, qui sont situés en majorité au sein de la vieille ville et de la banlieue. Ainsi, nous pouvons émettre l' + "'" + 'hypothèse d' + "'" + 'une corrélation entre la répartition des passoires énergétiques et celle des monuments historiques. <hr><br><br><i>Réalisé dans le cadre du cours Information géographique par :  Louis Suchet, Chloé Stephenson et Alhassane Tambadou <br>Master OTG</i>  '}
+                         )
+            }) ; 
+
+Swal.mixin({
+  
+	
+  confirmButtonText: '&#201;tape suivante &rarr;',
+  showCancelButton: true,
+  confirmButtonColor: "#f44d38",
+  cancelButtonColor: "#fc8f6f",
+  progressSteps: ['1', '2', '3', '4',],
+	reverseButtons: true,
+	cancelButtonText: 'Quitter le tutoriel',
+	
+	
+}).queue([
+  {
+    title: 'Bienvenue !',
+   html: "Cette carte interactive permet de visualiser la répartition des passoires énergétiques au sein de la commune de Montpellier. ",
+  },
+  {title:'Lecture de la carte', html: 'Il est possible de se déplacer, de zoomer et de cliquer sur les différents éléments pour accéder aux informations de la carte. ',},
+  {title:'Obtenir plus d'+"'"+'informations sur une unité spatiale', html: 'Au survol, des informations supplémentaires sont disponible à l'+ "'" + 'échelle de l'+ "'" + 'IRIS dans le panneau statistiques locales.',},
+{title:'Application réalisée par Louis Suchet, Chloé Stephenson et Alhassane Tambadou', html: 'Master OTG, Université de Strasbourg',},
+]).then((result) => {
+  if (result.value) {
+    Swal.fire({
+      title: 'A vous de jouer !',
+      html:
+        'Vous retrouverez des informations supplémentaires en cliquant sur la petite maison en haut à droite de l&rsquo;écran.',
+      confirmButtonText: 'C'+"'"+'est parti !',
+	  confirmButtonColor: "#f44d38",
+    })
+  }
+})	
+
+$("#boutoninformations").width($(window).width() / 14);
+  window.addEventListener("resize", function() {
+    $("#boutoninformations").width($(window).width() / 23);
+  });	
+ 
+ 	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom',};	
+    var customPopupCinema = "<center><b>Ancien Cinema Pathé<br/><br</center><img src='https://1.bp.blogspot.com/-qbNf5QtF_G4/TbctnXDBMSI/AAAAAAAAJ50/JaRq5wLnutA/s1600/Montpellier.jpg' width='100px' class='center' />";
+    var cinema = L.marker([ 43.61136498538719, 3.8820557293180684]).bindPopup(customPopupCinema,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};	
+    var customPopupFaculte = "<center><b>Faculté de Médecine et Musée d’anatomie<br/><br</center><img src='https://www.umontpellier.fr/wp-content/uploads/2016/09/conservatoire-anatomie08-300x200.jpg' width='100px' class='center' />";
+    var faculte = L.marker([ 43.61295840821569, 3.873463590099697]).bindPopup(customPopupFaculte,customOptions,).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupCastelane = "<center><b>Halle Castelane<br/><br/></center><img src='https://p.monumentum.fr/main/34/pa34000022-montpellier-halle-castellane.jpg' width='100px' class='center' />";
+    var castelane = L.marker([ 43.61042866660115, 3.877598833607538]).bindPopup(customPopupCastelane,customOptions).addTo(mymap);
+    
+      	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupEglise = "<center><b>Eglise Saint François de la Pierre Rouge, de l'Enclos Saint François<br/><br/></center><img src='https://p.monumentum.fr/main/34/pa34000021-montpellier-eglise-saint-francois-de-la-pierre-rouge-de-lenclos-saint-francois-et-enclos-saint-francois-de-la-pierre-rouge.jpg' width='100px' class='center' />";
+    var eglise = L.marker([ 43.62059570983296, 3.882921301065944]).bindPopup(customPopupEglise,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupClinique = "<center><b>Hôpital Général et Clinique Saint Charles<br/><br</center><img src='https://p.monumentum.fr/main/34/pa00103544-montpellier-hopital-general-saint-charles-et-clinique-saint-charles.jpg' width='100px' class='center' />";
+    var clinique = L.marker([ 43.61956440208307, 3.8658636731545055]).bindPopup(customPopupClinique,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupFontaine = "<center><b>Fontaine des Trois Grâces<br/><br</center><img src='https://montpellier.citycrunch.fr/wp-content/uploads/sites/7/2022/04/3graces.jpg' width='100px' class='center' />";
+    var fontaine = L.marker([ 43.608575957233754, 3.879516993809071]).bindPopup(customPopupFontaine,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupChateau = "<center><b>Château de Flaugergues<br/><br/></center><img src='https://france3-regions.francetvinfo.fr/image/myfSXyPHqh6ycqDoiKSI-3vbUFg/600x400/regions/2020/06/09/5edef3a502996_chateau_6.jpg' width='100px' class='center' />";
+    var chateau = L.marker([ 43.61016855789645, 3.918377509517989]).bindPopup(customPopupChateau,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'};	
+    var customPopupPromenade = "<center><b>Ensemble monumental de la Promenade du Peyrou<br/><br/></center><img src='https://vuedusud.fr/wp-content/uploads/post/2019/09/chateau-eau-promenade-peyrou-1200x850.jpg' width='100px' class='center' />";
+    var promenade = L.marker([ 43.61141173225553, 3.871029045766365]).bindPopup(customPopupPromenade,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'};	
+    var customPopupJardin = "<center><b>Jardins de la reine, Ancien Rectorat et Intendance Jardin des Plantes<br/><br/></center><img src='https://a.travel-assets.com/findyours-php/viewfinder/images/res70/77000/77357-Jardin-Des-Plantes-De-Montpellier.jpg' width='100px' class='center' />";
+    var jardin = L.marker([ 43.61502327464489, 3.871393766191247]).bindPopup(customPopupJardin,customOptions).addTo(mymap);
+    
+    //Acqueduc 12
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupAqueduc = "<center><b>Aqueduc des Arceaux ou de Pitot<br/><br/></center><img src='https://img-4.linternaute.com/-7lxVbvv4J2Rg6Mq_F_pu3YS_1k=/1240x/smart/18d4992fc48e498f954efd4158e08e68/ccmcms-linternaute/11077073.jpg' width='100px' class='center' />";
+    var aqueduc = L.marker([ 43.61154116387103, 3.869528428048473]).bindPopup(customPopupAqueduc,customOptions).addTo(mymap);
+    
+    //Hotel Deyde 10
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'};	
+    var customPopupDeyde = "<center><b>Hôtel Deydé<br/><br/></center><img src='https://p.monumentum.fr/main/34/pa00103559-montpellier-hotel-deyde.jpg' width='100px' class='center' />";
+    var deyde = L.marker([ 43.61266049321359, 3.8786920698948353]).bindPopup(customPopupDeyde,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'}	
+    var customPopupGanges = "<center><b>Ancien Hôtel de Ganges<br/><br/></center><img src='https://p.monumentum.fr/main/34/pa00103564-montpellier-ancien-hotel-de-ganges.jpg' width='100px' class='center' />";
+    var ganges = L.marker([ 43.611427100281624, 3.876598635980916]).bindPopup(customPopupGanges,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'};
+    var customPopupCollege = "<center><b>Collège des Ecossais<br/><br/></center><img src='https://1.bp.blogspot.com/-8GbOkH-I2fo/Wm1_InqmTVI/AAAAAAAABxI/IvF6bsTuYyM-UiDbebRxmq38V7iQ_mMjQCLcBGAs/s1600/DSC_0042a.JPG' width='100px' class='center' />";
+    var college = L.marker([ 43.63672007287383, 3.8611893593466555]).bindPopup(customPopupCollege,customOptions).addTo(mymap);
+    
+    	var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'}	
+    var customPopupParc = "<center><b>Château et Parc de la Piscine<br/><br/></center><img src='https://www.unidivers.fr/wp-content/uploads/2023/06/chateau-de-la-piscine-montpellier-2023-09-16t1500000200.jpg.webp' width='100px' class='center' />";
+    var parc = L.marker([ 43.61621386116803, 3.844916578096073]).bindPopup(customPopupParc,customOptions).addTo(mymap);
+    
+        var customOptions = {'maxWidth': '100', 'minWidth': '150', 'className' : 'custom'}	
+    var customPopupMas = "<center><b>Mas de Bagnères<br/><br/></center><img src='https://www.pss-archi.eu/photos/membres/523/l/1244916607M.jpg' width='100px' class='center' />";
+    var mas = L.marker([ 43.5871203446417, 3.8608208399449686]).bindPopup(customPopupMas,customOptions).addTo(mymap);
+    
+     var customOptions = {'maxWidth': '100', 'minWidth': '350', 'className' : 'custom'}	
+    var customPopupChateauO = "<center><b>Château d’Ô<br/><br/></center><img src='https://api.cloudly.space/resize/clip/1900/1080/75/aHR0cHM6Ly9jZHQzNC5tZWRpYS50b3VyaW5zb2Z0LmV1L3VwbG9hZC9kb21haW5lLWQtby1CcnVuby1NYXJ0aW5lei1PVDNNLS0tRG9tYWluZS1kZXBhcnRlbWVudGFsLTMtMy5qcGc=/image.jpg' width='100px' class='center' />";
+    var chateauO = L.marker([ 43.634594410708566, 3.8433518853936635]).bindPopup(customPopupChateauO,customOptions).addTo(mymap);
+    
+        var customOptions = {'maxWidth': '1000', 'minWidth': '350', 'className' : 'custom'}	
+    var customPopupImmeuble = "<center><b>CImmeuble dit « Hôtel Lefèvre »<br/><br/></center><img src='https://p.monumentum.fr/main/34/pa00103598-montpellier-immeuble-dit-hotel-lefevre.jpg' width='100px' class='center' />";
+    var immeuble = L.marker([ 43.604722010805624, 3.8781257438827303]).bindPopup(customPopupImmeuble,customOptions).addTo(mymap);
+
+
+var monuments = L.layerGroup([cinema, faculte, castelane, eglise, clinique, fontaine, chateau, promenade, jardin, aqueduc, deyde, ganges, college, parc, mas, chateauO, immeuble]);
+var overlayMaps = {
+    "Monuments historiques": monuments
+};
+var layerControl = L.control.layers(baselayers, overlayMaps, {collapsed: false,}).addTo(mymap); 
+
+
+</script>
+</body>
+</html>
